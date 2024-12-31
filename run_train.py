@@ -95,8 +95,9 @@ def train(args):
     tokenizer = AutoTokenizer.from_pretrained(args.pretrain_path)
 
 
-    dataset = CustomDataset(args.train_file, tokenizer, args.max_length)  # dataset
-    train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
+    train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length)  # dataset
+    test_dataset = CustomDataset(args.test_file, tokenizer, args.max_length)  # dataset
+    # train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
     train_dataloader = get_dataLoader(args, train_dataset,batch_size=args.train_batch_size, shuffle=True) # dataloader
     test_dataloader = get_dataLoader(args, test_dataset,batch_size=args.train_batch_size,shuffle=False)
 
@@ -203,28 +204,57 @@ def evaluate(model, dataloader, device):
     Compute spearman correlation coefficient.
     """
     model.eval()
-    preds, labels = [], []
+    preds, nsp_labels = [], []
+    data_info =[]
     for batch in tqdm(dataloader):
-        input_ids, attention_mask, token_type_ids, label, next_sentence_labels = [x.to(device) for x in batch]
+        batch_data,batch_info = batch[:-4],batch[-4:]
+        input_ids, attention_mask, token_type_ids,next_sentence_labels = [x.to(device) for x in batch_data]
         outputs = model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-            labels=labels,
-            next_sentence_label=next_sentence_labels
+            token_type_ids=token_type_ids
         )
-
-        labels.extend(label.tolist())
         seq_relationship_logits = outputs.seq_relationship_logits
         pred = F.softmax(seq_relationship_logits, dim=-1)
-        preds.extend(pred)
-    auc = cul_auc(preds,labels)
+
+        preds.extend(pred.cpu().numpy())
+        nsp_labels.extend(next_sentence_labels.cpu().numpy())
+
+    # 计算auc
+    preds = np.array(preds)
+    labels_array = np.array(nsp_labels)
+    auc = cul_auc(labels_array, preds[:, 1])
+
 
     model.train()
-    return auc
+    return auc,data_info
 
+def predict(args):
+    # 设备
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    # tokenzier
+    tokenizer = AutoTokenizer.from_pretrained(args.pretrain_path)
+
+    test_dataset = CustomDataset(args.test_file, tokenizer, args.max_length)  # dataset
+    test_dataloader = get_dataLoader(args, test_dataset,batch_size=args.train_batch_size,shuffle=False)
+
+    # 加载model
+    model = BertForPreTraining.from_pretrained(args.pretrain_path).to(device)
+
+    # 加载ckpt
+    if args.is_load == "True":
+        model.load_state_dict(torch.load(args.load_path))
+        logger.info(f'load model is {args.load_path}')
+
+    auc,data_info = evaluate(model, test_dataloader, device)
 
 if __name__ == '__main__':
     print('保持好心情！ ')
     args = parse_args()
-    train(args)
+    if args.mode == 'train':
+        train(args)
+    elif args.mode == 'predict':
+        predict(args)
+    else:
+        logger.info('模式不可用，可选模式为： [train,predict]')

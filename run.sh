@@ -3,8 +3,9 @@
 
 pip install -r requirements.txt &&
 python run_train.py \
+  --mode=train
   --train_file=dataset/241111-241211-pointwise_simple_neg-click_posi.csv  \
-  --test_file=dataset/new_test.csv \
+  --test_file=dataset/21Q4-22Q1Q2Q3-23Q1Q2Q3-evaled-all_process_new_dup_recorrect.csv \
   --output_dir=ckpt \
   --pretrain_path=pretrain_models/tiansz/bert-base-chinese \
   --is_load=False \

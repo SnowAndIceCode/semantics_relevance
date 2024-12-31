@@ -15,6 +15,47 @@ from transformers import AutoTokenizer
 '''
  v1:mask 有些问题
 '''
+
+class testDataset(Dataset):
+    def __init__(self,data_file,tokenizer,max_length):
+        self.data = self.load_data(data_file)
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+    def load_data(self,data_file):
+        data_df = pd.read_csv(data_file)
+        datas = []
+        for i in tqdm(range(len(data_df))):
+            query = data_df['query'].iloc[i]
+            doc = data_df['doc'].iloc[i]
+            label = data_df['scoreFlag'].iloc[i]
+            sessionid = data_df['sessionid'].iloc[i]
+            infoid = data_df['infoid'].iloc[i]
+            datas.append({"query":query,"doc":doc,"label":label,"sessionid":sessionid,"infoid":str(infoid)})
+        return datas
+    def __len__(self):
+        return len(self.data)
+    def __getitem__(self, idx):
+        sample = self.data[idx]
+        sent_a = sample["query"]
+        sent_b = sample["doc"]
+        is_next = sample["label"]
+        sessionid = sample["sessionid"]
+        infoid = sample["infoid"]
+        encoding = self.tokenizer(
+            sent_a, sent_b,
+            max_length=self.max_length,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        input_ids = encoding["input_ids"].squeeze(0)
+        attention_mask = encoding["attention_mask"].squeeze(0)
+        token_type_ids = encoding["token_type_ids"].squeeze(0)
+
+        return input_ids, attention_mask, token_type_ids, torch.tensor(is_next, dtype=torch.long),sessionid,infoid,sent_a,sent_b
+
 class CustomDataset(Dataset):
     def __init__(self, data_file, tokenizer, max_length):
         self.data = self.load_data(data_file)
@@ -26,9 +67,9 @@ class CustomDataset(Dataset):
         datas = []
         data_df = pd.read_csv(data_file)
         for i in tqdm(range(len(data_df))):
-            count += 1
-            if count >10000:
-                break
+            # count += 1
+            # if count >10000:
+            #     break
             query = data_df['query'].iloc[i]
             doc = data_df['doc'].iloc[i]
             label = data_df['isNext'].iloc[i]
@@ -96,7 +137,12 @@ if __name__ == '__main__':
     # texts = [{"sentence1":"这是一个简单的预训练示例。", "sentence2":"BERT是一个双向的Transformer模型。","isNext":True}]
     # dataset = CustomDataset(texts,tokenizer,64)
     # print(dataset.__getitem__(0))
-    train_data_path = 'data_process/241111-241211-pointwise_simple_neg-click_posi.csv'
-    dataset = CustomDataset(train_data_path, tokenizer, 64)
-    train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
-    print(len(train_dataset))
+    # train_data_path = 'dataset/241111-241211-pointwise_simple_neg-click_posi.csv'
+    test_data_path = 'dataset/21Q4-22Q1Q2Q3-23Q1Q2Q3-evaled-all_process_new_dup_recorrect.csv'
+    # dataset = CustomDataset(train_data_path, tokenizer, 64)
+    test_dataset = testDataset(test_data_path, tokenizer, 64)
+    # train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
+    test_loder = DataLoader(test_dataset,batch_size=2)
+    print(test_dataset.__getitem__(0))
+    print('=========')
+    print(next(iter(test_loder))[:-4])

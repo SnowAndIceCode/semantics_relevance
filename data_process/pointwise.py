@@ -65,6 +65,6 @@ def get_sample_neg(file_path,save_path):
 if __name__ == '__main__':
     print('保持好心情！ ')
     file_path = 'raw_data/487030991_AB3B1A_相关性正样本数据挖掘.txt'
-    save_path = '241111-241211-pointwise_simple_neg-click_posi.csv'
+    save_path = '../dataset/241111-241211-pointwise_simple_neg-click_posi.csv'
     get_sample_neg(file_path,save_path)
 

@@ -12,6 +12,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Required parameters
+    parser.add_argument("--mode", default="train", type=str, required=True, help="The input training file.")
     parser.add_argument("--train_file", default=None, type=str, required=True, help="The input training file.")
     parser.add_argument("--test_file", default=None, type=str, required=True, help="The input testing file.")
     parser.add_argument("--output_dir", default='./ckpt', type=str, required=True, help="模型保存路径", )
