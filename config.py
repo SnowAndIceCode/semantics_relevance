@@ -12,13 +12,16 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     # Required parameters
-    parser.add_argument("--mode", default="train", type=str, required=True, help="The input training file.")
+    parser.add_argument("--mode", default="train", type=str, required=True, help="The mode.")
     parser.add_argument("--train_file", default=None, type=str, required=True, help="The input training file.")
     parser.add_argument("--test_file", default=None, type=str, required=True, help="The input testing file.")
-    parser.add_argument("--output_dir", default='./ckpt', type=str, required=True, help="模型保存路径", )
+    parser.add_argument("--output_dir", default='./ckpt', type=str, required=True, help="模型保存路径")
+    parser.add_argument("--test_result", default='./test_result/test.csv', type=str, required=True, help="预测结果保存路径")
+    parser.add_argument("--log_path", default='ckpt/result.log', type=str, required=True, help="logs路径")
 
     parser.add_argument("--pretrain_path", default=None, type=str, required=True, help="The pretrain model path.")
-    parser.add_argument("--model_type",default="bert", type=str, required=False)
+    parser.add_argument("--train_type",default="finetune", type=str, required=False)
+    parser.add_argument("--num_layer",default=12, type=int, required=False)
     parser.add_argument('--is_load', default=False, type=str, help='是否加载模型权重')
     parser.add_argument("--load_path", default=None, type=str, required=True, help="加载模型路径")
 
@@ -43,6 +46,10 @@ def parse_args():
     # hdfs
     parser.add_argument('--upload_hdfs', default=False, type=str, help='是否将保存的模型存入hdfs')
     parser.add_argument("--to_hdfs", help="预测结果保存至hdfs的路径", default="")
+
+    # eval数据转化
+    parser.add_argument('--is_eval_thr', default=True, type=str, help='验证集合是否需要阈值划分')
+    parser.add_argument("--threshold", default=None, type=int)
     args = parser.parse_args()
     return args
 
