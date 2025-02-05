@@ -31,6 +31,19 @@ class PostTrainModel(BertPreTrainedModel):
 
         return prediction_scores, classification_logits.squeeze()
 
+
+class FineTuningModel(BertPreTrainedModel):
+    def __init__(self,config,num_layers=12):
+        super().__init__(config)
+        config.num_hidden_layers = num_layers
+        self.bert = BertModel(config)
+        self.classification_head = nn.Linear(config.hidden_size, 1)
+    def forward(self,input_ids,attention_mask,token_type_ids):
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+        sequence_output, pooled_output = outputs[:2]  # 取出[CLS]后的隐藏状态
+        classification_logits = self.classification_head(pooled_output)
+        return classification_logits.squeeze()
+
 if __name__ == '__main__':
     from transformers import AutoTokenizer
     mode_path = '/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/tiansz/bert-base-chinese'
