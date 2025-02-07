@@ -26,7 +26,7 @@ from data_helper import CustomDataset, get_dataLoader, testDataset
 from tqdm.auto import tqdm
 from config import parse_args
 from metrics import cul_auc
-from criteria import MultiLossWithMRL, DoubleLoss
+from criteria import DoubleLoss
 import pandas as pd
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
@@ -132,7 +132,7 @@ def train(args):
     # tokenzier
     tokenizer = AutoTokenizer.from_pretrained(args.pretrain_path)
 
-    train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length)  # dataset
+    train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length,args.train_type)  # dataset
     test_dataset = testDataset(args.test_file, tokenizer, args.max_length)  # dataset
     # train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
     train_dataloader = get_dataLoader(args, train_dataset, batch_size=args.train_batch_size, shuffle=True)  # dataloader
@@ -188,12 +188,12 @@ def train(args):
     model.train()
     for epoch in range(1, args.num_train_epochs + 1):
         for step, batch in enumerate(train_dataloader, start=1):
-            input_ids, attention_mask, token_type_ids, labels, next_sentence_labels = [x.to(device) for x in batch]
-
             if args.train_type == 'post_pretrain':
+                input_ids, attention_mask, token_type_ids, labels, next_sentence_labels = [x.to(device) for x in batch]
                 prediction_scores, classification_logits = model(input_ids, attention_mask, token_type_ids)
                 loss_dict = critertion(prediction_scores, labels, classification_logits, next_sentence_labels)
             else:
+                input_ids, attention_mask, token_type_ids, next_sentence_labels = [x.to(device) for x in batch]
                 classification_logits = model(input_ids, attention_mask, token_type_ids)
                 loss_dict = critertion(classification_logits=classification_logits, next_sentence_labels=next_sentence_labels)
 
@@ -260,8 +260,7 @@ def evaluate(args, model, dataloader, device):
     all_sessionid, all_infoid, all_query, all_doc = [], [], [], []
     all_pred_result = []
     for batch in tqdm(dataloader):
-        batch_data, batch_sessionid, batch_infoid, batch_query, batch_doc = batch[:-4], batch[-4], batch[-3], batch[-2], \
-        batch[-1]
+        batch_data, batch_sessionid, batch_infoid, batch_query, batch_doc = batch[:-4], batch[-4], batch[-3], batch[-2],batch[-1]
         input_ids, attention_mask, token_type_ids, next_sentence_labels = [x.to(device) for x in batch_data]
 
         if args.train_type == 'post_pretrain':
