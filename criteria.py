@@ -68,11 +68,11 @@ class DoubleLoss(nn.Module):
             mlm_loss = self.ce_loss(prediction_scores.view(-1, 21128), labels.view(-1))
             pointwise_loss = self.bce_loss(classification_logits,next_sentence_labels)
             losses = mlm_loss+pointwise_loss
-            return {'total_loss':losses,'mlm_loss':mlm_loss,"pointwise_loss":pointwise_loss}
+            return {'total_loss':losses,'mlm_loss':mlm_loss,"pointwise_loss":pointwise_loss,"pairwise_loss": 0.0}
 
         elif self.train_type =='finetune':
             pointwise_loss = self.bce_loss(classification_logits, next_sentence_labels)
-            return {'total_loss': pointwise_loss, 'mlm_loss': 0.0, "pointwise_loss": pointwise_loss}
+            return {'total_loss': pointwise_loss, 'mlm_loss': 0.0, "pointwise_loss": pointwise_loss,"pairwise_loss": 0.0}
         else:
             raise ValueError('train_type must be post_pretrain or finetune')
 
