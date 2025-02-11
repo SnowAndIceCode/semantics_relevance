@@ -62,9 +62,40 @@ def get_sample_neg(file_path,save_path):
     datas_df = pd.DataFrame(datas)
     datas_df.to_csv(save_path, index=False)
     print(datas_df.info())
+
+def get_sample_neg_with_pairwise(file_path,save_path):
+    docs = []
+    datas = []
+    neg_datas = []
+    count_line = 0
+    with open(file_path) as fr:
+        for line in fr:
+            if count_line ==0:
+                count_line+=1
+                continue
+            data = line.strip().split('\t')
+            if len(data) != 3:
+                print(f'lenth is error:{data}')
+                continue
+            query, doc = data[0].strip(), data[1].strip()
+            if check_string(query):
+                print(f'query is error:{line}')
+                continue
+            docs.append(doc.strip())
+            datas.append({'query': query, 'doc_neg': '-', 'doc_posi': doc})
+    size = len(datas)
+    random.shuffle(docs)
+    for i in tqdm(range(size)):
+        doc_neg = docs[i]
+        datas[i]['doc_neg'] = doc_neg
+    datas_df = pd.DataFrame(datas)
+    datas_df.to_csv(save_path, index=False)
+    print(datas_df.info())
+
+
 if __name__ == '__main__':
     print('保持好心情！ ')
     file_path = 'raw_data/487030991_AB3B1A_相关性正样本数据挖掘.txt'
-    save_path = '../dataset/241111-241211-pointwise_simple_neg-click_posi.csv'
-    get_sample_neg(file_path,save_path)
+    save_path = '../dataset/241111-241211-pairwise_simple_neg-click_posi.csv'
+    get_sample_neg_with_pairwise(file_path,save_path)
 

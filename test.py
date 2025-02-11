@@ -1,22 +1,25 @@
 # 需在GPU环境运行
 # 加载数据集过程可能由于网络原因失败，请尝试重新运行代码
-from modelscope.metainfo import Trainers
-from modelscope.msdatasets import MsDataset
-from modelscope.trainers import build_trainer
-import tempfile
+# from modelscope.metainfo import Trainers
+# from modelscope.msdatasets import MsDataset
+# from modelscope.trainers import build_trainer
+# import tempfile
 import os
-
-tmp_dir = tempfile.TemporaryDirectory().name
-if not os.path.exists(tmp_dir):
-    os.makedirs(tmp_dir)
-
-# load dataset
-ds = MsDataset.load('dureader-retrieval-ranking', 'zyznull')
-train_ds = ds['train'].to_hf_dataset()
-dev_ds = ds['dev'].to_hf_dataset()
-model_id = '/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/iic/nlp_rom_passage-ranking_chinese-base'
-print(len(next(iter(train_ds))["positive_passages"]))
-print(len(next(iter(train_ds))["negative_passages"]))
+local_path="getmodel"
+local_path_split = os.path.split(local_path)
+print(local_path_split)
+print(local_path_split[1])
+# tmp_dir = tempfile.TemporaryDirectory().name
+# if not os.path.exists(tmp_dir):
+#     os.makedirs(tmp_dir)
+#
+# # load dataset
+# ds = MsDataset.load('dureader-retrieval-ranking', 'zyznull')
+# train_ds = ds['train'].to_hf_dataset()
+# dev_ds = ds['dev'].to_hf_dataset()
+# model_id = '/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/iic/nlp_rom_passage-ranking_chinese-base'
+# print(len(next(iter(train_ds))["positive_passages"]))
+# print(len(next(iter(train_ds))["negative_passages"]))
 # def cfg_modify_fn(cfg):
 #     cfg.task = 'text-ranking'
 #     cfg['preprocessor'] = {'type': 'text-ranking'}

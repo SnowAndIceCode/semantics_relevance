@@ -12,5 +12,5 @@ def model_down(model_name,save_path='./'):
 if __name__ == '__main__':
     print('保持好心情！ ')
     model_name = 'iic/nlp_rom_passage-ranking_chinese-base'
-    save_path = 'pretrain_models/'
+    save_path = './'
     model_down(model_name,save_path)

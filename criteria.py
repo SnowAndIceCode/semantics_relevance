@@ -29,8 +29,8 @@ class MultiTaskLossWithRankNet(nn.Module):
         # pred:[batch*seq,vocab_size],
 
         if self.train_type == 'post_pretrain':
-            neg_mlm_loss = self.criterion(neg_prediction_scores.view(-1, 21128), neg_labels.view(-1))
-            posi_mlm_loss = self.criterion(posi_prediction_scores.view(-1, 21128), posi_labels.view(-1))
+            neg_mlm_loss = self.ce_loss(neg_prediction_scores.view(-1, 21128), neg_labels.view(-1))
+            posi_mlm_loss = self.ce_loss(posi_prediction_scores.view(-1, 21128), posi_labels.view(-1))
 
             neg_pointwise_loss = self.bce_loss(neg_classification_logits, neg_nsp_label)
             posi_pointwise_loss = self.bce_loss(posi_classification_logits, posi_nsp_label)
