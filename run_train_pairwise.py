@@ -22,11 +22,11 @@ from transformers import AutoTokenizer, AutoModel, BertForPreTraining, AutoModel
 from modeling import PostTrainModel, FineTuningModel
 from transformers.file_utils import WEIGHTS_NAME, CONFIG_NAME
 from transformers import AdamW, get_scheduler
-from data_helper import CustomDataset, get_dataLoader, testDataset
+from data_helper_pairwise import PairwiseDataset,CustomDataset, get_dataLoader, testDataset
 from tqdm.auto import tqdm
 from config import parse_args
 from metrics import cul_auc
-from criteria import DoubleLoss
+from criteria import MultiTaskLossWithRankNet, DoubleLoss
 import pandas as pd
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
@@ -36,7 +36,20 @@ logger = logging.getLogger(__name__)
 
 hadoop_cmds = "/usr/lib/software/hadoop/bin/hadoop"
 
-
+'''
+    pairwise与pointwise使用相同数据集 
+    数据形式为：
+        {query,doc+,doc-}
+    
+    pointwise 与pairwise 使用的数据不一致：
+    pointwise 数据集：
+    pairwise 数据集：
+    
+    损失函数：
+        margin loss
+        rankNet loss
+    
+'''
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -57,7 +70,7 @@ def upload_to_hdfs(local_path, hdfs_path):
         os.system(ordrer)
         ordrer = "{0} fs -mv {1}/{2} {1}/{2}-bak".format(hadoop_cmds, hdfs_path, local_path_split[1])
         os.system(ordrer)
-    ordrer = "{} fs -put {} {}/".format(hadoop_cmds, local_path, hdfs_path)
+    ordrer = "{} fs -put {} {}/".format(hadoop_cmds, local_path, hdfs_path) # 将模型上传至hadoop的命令
     if os.system(ordrer) == 0:
         flag = True
     return flag
@@ -65,14 +78,14 @@ def upload_to_hdfs(local_path, hdfs_path):
 
 def export_model(save_model_dir, model):
     # 从训练的bestmodel导出模型
-    best_path = './{}/best_super_epoch.bin'.format(save_model_dir)
+    best_path = f'./{save_model_dir}/{WEIGHTS_NAME}'
     # 加载保存最好的模型权重
     try:
         model.load_state_dict(torch.load(best_path))
     except Exception as e:
         print("load weights Error:{}".format(e))
     # 导出目录
-    export_path = save_model_dir + "/export_model/"
+    export_path = save_model_dir + "/export_model/" # ckpt/export_model/
 
     # 使用 os.path.exists() 检查目录是否存在
     if not os.path.exists(export_path):
@@ -80,7 +93,7 @@ def export_model(save_model_dir, model):
         os.makedirs(export_path)
         print(f"Directory {export_path} created.")
     else:
-        print(f"Directory {export_path} already exists.")
+        print(f"Directory {export_path} already exists.") # ckpt/export_model/model.pth
 
     try:
         # 保存整个模型
@@ -132,7 +145,10 @@ def train(args):
     # tokenzier
     tokenizer = AutoTokenizer.from_pretrained(args.pretrain_path)
 
-    train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length,args.train_type)  # dataset
+    if args.loss_type != 'pairwise':
+        train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length,train_type=args.train_type)  # dataset
+    else:
+        train_dataset = PairwiseDataset(args.train_file, tokenizer, args.max_length,train_type=args.train_type)  # dataset
     test_dataset = testDataset(args.test_file, tokenizer, args.max_length)  # dataset
     # train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
     train_dataloader = get_dataLoader(args, train_dataset, batch_size=args.train_batch_size, shuffle=True)  # dataloader
@@ -164,7 +180,10 @@ def train(args):
         num_training_steps=t_total
     )
 
-    critertion = DoubleLoss(train_type=args.train_type)
+    if args.loss_type != 'pairwise':
+        critertion = DoubleLoss(train_type=args.train_type)
+    else:
+        critertion = MultiTaskLossWithRankNet(train_type=args.train_type)
 
     # 保存模型
     if not os.path.exists(args.output_dir):
@@ -188,16 +207,43 @@ def train(args):
     model.train()
     for epoch in range(1, args.num_train_epochs + 1):
         for step, batch in enumerate(train_dataloader, start=1):
-            if args.train_type == 'post_pretrain':
+
+            if args.loss_type != 'pairwise' and args.train_type == 'post_pretrain': # post_pretrain + pointwise
                 input_ids, attention_mask, token_type_ids, labels, next_sentence_labels = [x.to(device) for x in batch]
                 prediction_scores, classification_logits = model(input_ids, attention_mask, token_type_ids)
                 loss_dict = critertion(prediction_scores, labels, classification_logits, next_sentence_labels)
-            else:
+
+            elif args.loss_type != 'pairwise' and args.train_type != 'post_pretrain': # post_pretrain + finetuing
                 input_ids, attention_mask, token_type_ids, next_sentence_labels = [x.to(device) for x in batch]
                 classification_logits = model(input_ids, attention_mask, token_type_ids)
-                loss_dict = critertion(classification_logits=classification_logits, next_sentence_labels=next_sentence_labels)
+                loss_dict = critertion(classification_logits=classification_logits,next_sentence_labels=next_sentence_labels)
 
-            loss, mlm_loss, pointwise_loss = loss_dict['total_loss'], loss_dict['mlm_loss'], loss_dict['pointwise_loss']
+            elif args.loss_type == 'pairwise' and args.train_type == 'post_pretrain': #  post_pretrain + pointwise + pairwise
+                neg_input_ids, posi_input_ids, neg_attention_mask, posi_attention_mask, neg_token_type_ids, posi_token_type_ids, neg_labels, posi_labels  = [x.to(device) for x in batch]
+                neg_prediction_scores, neg_classification_logits = model(neg_input_ids, neg_attention_mask, neg_token_type_ids)
+                posi_prediction_scores, posi_classification_logits = model(posi_input_ids, posi_attention_mask, posi_token_type_ids)
+                neg_nsp_label = torch.zeros(neg_input_ids.shape[0]).to(device)
+                posi_nsp_label = torch.ones(neg_input_ids.shape[0]).to(device)
+
+                loss_dict = critertion(neg_prediction_scores,
+                                       neg_labels,
+                                       posi_prediction_scores,
+                                       posi_labels,
+                                       neg_classification_logits,
+                                       neg_nsp_label,
+                                       posi_classification_logits,
+                                       posi_nsp_label)
+
+            else:  #  finetuing + pointwise + pairwise
+                neg_input_ids, posi_input_ids, neg_attention_mask, posi_attention_mask, neg_token_type_ids, posi_token_type_ids = [x.to(device) for x in batch]
+                neg_classification_logits = model(neg_input_ids, neg_attention_mask,neg_token_type_ids)
+                posi_classification_logits = model(posi_input_ids, posi_attention_mask,posi_token_type_ids)
+                neg_nsp_label = torch.zeros(neg_classification_logits.shape[0]).to(device)
+                posi_nsp_label = torch.ones(neg_classification_logits.shape[0]).to(device)
+                loss_dict = critertion(neg_classification_logits=neg_classification_logits,neg_nsp_label=neg_nsp_label,posi_classification_logits=posi_classification_logits,posi_nsp_label=posi_nsp_label)
+
+
+            loss, mlm_loss, pointwise_loss,pairwise_loss = loss_dict['total_loss'], loss_dict['mlm_loss'], loss_dict['pointwise_loss'],loss_dict['pairwise_loss']
 
             optimizer.zero_grad()
             loss.backward()
@@ -210,8 +256,8 @@ def train(args):
             if global_step % args.logging_steps == 0:
                 time_diff = time.time() - tic_train
                 logger.info(
-                    "global step: %d, epoch: %d, batch: %d, total_loss: %.4f, mlm_loss: %.4f, pointwise_loss: %.4f,time cost: %.2fs" %
-                    (global_step, epoch, step, loss, mlm_loss, pointwise_loss, time_diff))
+                    "global step: %d, epoch: %d, batch: %d, total_loss: %.4f, mlm_loss: %.4f, pointwise_loss: %.4f,pairwise_loss: %.4f,time cost: %.2fs" %
+                    (global_step, epoch, step, loss, mlm_loss, pointwise_loss,pairwise_loss,time_diff))
 
             with open(args.log_path, 'a+') as fw:
                 if global_step % args.save_steps == 0:
@@ -227,10 +273,10 @@ def train(args):
                                     f"epoch:{epoch}--global_step:{global_step}--" + "bestmodel: %.4f" % (auc) + '\n')
                                 logging.info("Saving model")
                                 torch.save(model_to_save.state_dict(),
-                                           os.path.join(args.output_dir, "best_" + WEIGHTS_NAME))
-                                model_to_save.config.to_json_file(os.path.join(args.output_dir, "best_" + CONFIG_NAME))
+                                           os.path.join(args.output_dir, WEIGHTS_NAME))
+                                model_to_save.config.to_json_file(os.path.join(args.output_dir, CONFIG_NAME))
 
-                if global_step % step_per_epoch == 0:  # 每个epoch结束
+                if global_step % step_per_epoch == 0:  # 每个epoch结束保存一个模型
                     auc, datainfo = evaluate(args, model, test_dataloader, device)
                     logging.info(f"epoch:{epoch}--global_step:{global_step}--" + "%.4f" % (auc))
                     fw.write(f"epoch:{epoch}--global_step:{global_step}--" + "%.4f" % (auc) + '\n')
@@ -246,7 +292,7 @@ def train(args):
             else:
                 print("model upload to hdfs -> {}".format(args.to_hdfs))
 
-        export_model(args.save_model_dir, model)  # 导出模型
+        export_model(args.output_dir, model)  # 导出模型
 
 
 @torch.no_grad()
@@ -260,7 +306,8 @@ def evaluate(args, model, dataloader, device):
     all_sessionid, all_infoid, all_query, all_doc = [], [], [], []
     all_pred_result = []
     for batch in tqdm(dataloader):
-        batch_data, batch_sessionid, batch_infoid, batch_query, batch_doc = batch[:-4], batch[-4], batch[-3], batch[-2],batch[-1]
+        batch_data, batch_sessionid, batch_infoid, batch_query, batch_doc = batch[:-4], batch[-4], batch[-3], batch[-2], \
+        batch[-1]
         input_ids, attention_mask, token_type_ids, next_sentence_labels = [x.to(device) for x in batch_data]
 
         if args.train_type == 'post_pretrain':

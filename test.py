@@ -5,10 +5,14 @@
 # from modelscope.trainers import build_trainer
 # import tempfile
 import os
-local_path="getmodel"
-local_path_split = os.path.split(local_path)
-print(local_path_split)
-print(local_path_split[1])
+import random
+# local_path="getmodel"
+# local_path_split = os.path.split(local_path)
+# print(local_path_split)
+# print(local_path_split[1])
+a = sorted([5,2,3]) #【2，3，5】
+res = a.index(3)
+print(res)
 # tmp_dir = tempfile.TemporaryDirectory().name
 # if not os.path.exists(tmp_dir):
 #     os.makedirs(tmp_dir)
