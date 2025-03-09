@@ -130,7 +130,7 @@ def load_model(args, device='cpu'):
             logger.info(f'model str:{model}')
         else:
             # 直接加载预训练模型（包含配置和权重）
-            model = PostTrainModel.from_pretrained(args.pretrain_path, num_layers=args.num_layer)
+            model = PostTrainModel.from_pretrained(args.pretrain_path, num_layers=args.num_layer).to(device)
     elif args.train_type == 'pretrain':
         model = BertForPreTraining.from_pretrained(args.pretrain_path)
     elif args.train_type == 'raw':
