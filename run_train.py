@@ -311,6 +311,39 @@ def evaluate(args, model, dataloader, device):
     model.train()
     return auc, all_pred_result
 
+def ranking(pretrain_path,inputs):
+    '''
+
+    :param args:
+    :param inputs:
+    {"query":[你好]
+    "docs":[doc1,doc2,doc3]}
+    :return:
+
+    '''
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    tokenizer = AutoTokenizer.from_pretrained(pretrain_path)
+    # model = load_model(args, device)
+    # logger.info(f'model:{model}')
+    query = inputs['query']
+    encodings_list = []
+    for doc in inputs['docs']:
+        encodings = tokenizer(query,doc,padding='max_length',truncation=True,max_length=64,return_tensors='pt').to(device)
+        encodings_list.append(encodings)
+
+    # 初始化字典存储每种类型的张量
+    batch = {k: [] for k in encodings_list[0].keys()}
+
+    # 收集每个编码中的张量
+    for encoding in encodings_list:
+        for key, value in encoding.items():
+            batch[key].append(value)
+
+    # 使用 torch.cat 将列表转换为批次张量（对于二维或更高维的张量）
+    batch = {k: torch.cat(v, dim=0) for k, v in batch.items()}
+
+    print(batch)
+
 
 def predict(args):
     # 设备
@@ -344,3 +377,5 @@ if __name__ == '__main__':
         predict(args)
     else:
         logger.info('模式不可用，可选模式为： [train,predict]')
+    # pretrain_path = '/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/tiansz/bert-base-chinese'
+    # ranking(pretrain_path,inputs={'query':'你好','docs':['你好','你是谁','哈哈哈']})

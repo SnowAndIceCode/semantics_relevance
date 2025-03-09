@@ -8,6 +8,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class DistillForMSE(nn.Module):
+    def __init__(self,train_type='post_pretrain'):
+        super().__init__()
+        self.mse = nn.MSELoss()
+
+    def forward(self,classification_logits=None,next_sentence_labels=None):
+        distll_loss = self.mse(torch.sigmoid(classification_logits), next_sentence_labels)
+        return {'total_loss': distll_loss, 'mlm_loss': 0.0, "pointwise_loss": distll_loss,"pairwise_loss": 0.0}
+
 class MultiTaskLossWithRankNet(nn.Module):
     '''
     mlm+pointwise+pairwise

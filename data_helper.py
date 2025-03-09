@@ -127,16 +127,15 @@ class PairwiseDataset(Dataset):
         probability_matrix.masked_fill_(torch.tensor(special_tokens_mask, dtype=torch.bool), value=0.0)
         masked_indices = torch.bernoulli(probability_matrix).bool()
         labels[~masked_indices] = -100  # 不计算未被mask的部分的loss
-
         # 80% mask token, 10% random token, 10% original token
         indices_replaced = torch.bernoulli(torch.full(labels.shape, 0.8)).bool() & masked_indices
-        mlm_input_ids[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
+        input_ids[indices_replaced] = self.tokenizer.convert_tokens_to_ids(self.tokenizer.mask_token)
 
         indices_random = torch.bernoulli(torch.full(labels.shape, 0.5)).bool() & masked_indices & ~indices_replaced
         random_words = torch.randint(len(self.tokenizer), labels.shape, dtype=torch.long)
-        mlm_input_ids[indices_random] = random_words[indices_random]
+        input_ids[indices_random] = random_words[indices_random]
 
-        return mlm_input_ids,input_ids, labels
+        return input_ids, labels
 
 class CustomDataset(Dataset):
     def __init__(self, data_file, tokenizer, max_length,train_type='post_pretrain'):

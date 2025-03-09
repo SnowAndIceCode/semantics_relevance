@@ -22,7 +22,7 @@ from transformers import AutoTokenizer, AutoModel, BertForPreTraining, AutoModel
 from modeling import PostTrainModel, FineTuningModel
 from transformers.file_utils import WEIGHTS_NAME, CONFIG_NAME
 from transformers import AdamW, get_scheduler
-from data_helper_pairwise import PairwiseDataset,CustomDataset, get_dataLoader, testDataset
+from data_helper_pairwise import PairwiseDataset, CustomDataset, get_dataLoader, testDataset
 from tqdm.auto import tqdm
 from config import parse_args
 from metrics import cul_auc
@@ -40,16 +40,18 @@ hadoop_cmds = "/usr/lib/software/hadoop/bin/hadoop"
     pairwise与pointwise使用相同数据集 
     数据形式为：
         {query,doc+,doc-}
-    
+
     pointwise 与pairwise 使用的数据不一致：
     pointwise 数据集：
     pairwise 数据集：
-    
+
     损失函数：
         margin loss
         rankNet loss
-    
+
 '''
+
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
@@ -70,7 +72,7 @@ def upload_to_hdfs(local_path, hdfs_path):
         os.system(ordrer)
         ordrer = "{0} fs -mv {1}/{2} {1}/{2}-bak".format(hadoop_cmds, hdfs_path, local_path_split[1])
         os.system(ordrer)
-    ordrer = "{} fs -put {} {}/".format(hadoop_cmds, local_path, hdfs_path) # 将模型上传至hadoop的命令
+    ordrer = "{} fs -put {} {}/".format(hadoop_cmds, local_path, hdfs_path)  # 将模型上传至hadoop的命令
     if os.system(ordrer) == 0:
         flag = True
     return flag
@@ -85,7 +87,7 @@ def export_model(save_model_dir, model):
     except Exception as e:
         print("load weights Error:{}".format(e))
     # 导出目录
-    export_path = save_model_dir + "/export_model/" # ckpt/export_model/
+    export_path = save_model_dir + "/export_model/"  # ckpt/export_model/
 
     # 使用 os.path.exists() 检查目录是否存在
     if not os.path.exists(export_path):
@@ -93,7 +95,7 @@ def export_model(save_model_dir, model):
         os.makedirs(export_path)
         print(f"Directory {export_path} created.")
     else:
-        print(f"Directory {export_path} already exists.") # ckpt/export_model/model.pth
+        print(f"Directory {export_path} already exists.")  # ckpt/export_model/model.pth
 
     try:
         # 保存整个模型
@@ -108,7 +110,8 @@ def export_model(save_model_dir, model):
 def load_model(args, device='cpu'):
     if args.train_type == 'finetune':
         logger.info(f"pretrain path:{args.load_path}")
-        pretrain_model = PostTrainModel.from_pretrained(args.load_path)
+        pretrain_model = PostTrainModel.from_pretrained(args.load_path, args.num_layer)
+
         model = FineTuningModel(pretrain_model.config, args.num_layer).to(device)
         # 加载ckpt
         if args.is_load == "True":
@@ -117,14 +120,17 @@ def load_model(args, device='cpu'):
                 pretrain_model.classification_head.state_dict())  # 加载postpretrain 分类头
 
             logger.info(f'load model is {args.load_path}')
-
+            logger.info(f'fine-tuning_model:{model}')
     elif args.train_type == 'post_pretrain':
-        config = BertConfig.from_pretrained(args.pretrain_path)
-        model = PostTrainModel(config, args.num_layer).to(device)
         if args.is_load == "True":
-            model_path = args.load_path + 'best_pytorch_model.bin'
-            model.load_state_dict(torch.load(model_path))
-            logger.info(f'load model is {model_path}')
+            config = BertConfig.from_pretrained(args.load_path)
+            model = PostTrainModel(config, args.num_layer).to(device)
+            model.load_state_dict(torch.load(args.load_path + "/pytorch_model.bin"))
+            logger.info(f'load model is {args.load_path}')
+            logger.info(f'model str:{model}')
+        else:
+            # 直接加载预训练模型（包含配置和权重）
+            model = PostTrainModel.from_pretrained(args.pretrain_path, num_layers=args.num_layer)
     elif args.train_type == 'pretrain':
         model = BertForPreTraining.from_pretrained(args.pretrain_path)
     elif args.train_type == 'raw':
@@ -146,9 +152,11 @@ def train(args):
     tokenizer = AutoTokenizer.from_pretrained(args.pretrain_path)
 
     if args.loss_type != 'pairwise':
-        train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length,train_type=args.train_type)  # dataset
+        train_dataset = CustomDataset(args.train_file, tokenizer, args.max_length,
+                                      train_type=args.train_type)  # dataset
     else:
-        train_dataset = PairwiseDataset(args.train_file, tokenizer, args.max_length,train_type=args.train_type)  # dataset
+        train_dataset = PairwiseDataset(args.train_file, tokenizer, args.max_length,
+                                        train_type=args.train_type)  # dataset
     test_dataset = testDataset(args.test_file, tokenizer, args.max_length)  # dataset
     # train_dataset, test_dataset = random_split(dataset, [0.8, 0.2])
     train_dataloader = get_dataLoader(args, train_dataset, batch_size=args.train_batch_size, shuffle=True)  # dataloader
@@ -156,6 +164,7 @@ def train(args):
 
     # 加载model
     model = load_model(args, device)
+    logger.info(f"model struct:{model}")
 
     t_total = len(train_dataloader) * args.num_train_epochs  # total step
     no_decay = ["bias", "LayerNorm.weight"]
@@ -208,20 +217,24 @@ def train(args):
     for epoch in range(1, args.num_train_epochs + 1):
         for step, batch in enumerate(train_dataloader, start=1):
 
-            if args.loss_type != 'pairwise' and args.train_type == 'post_pretrain': # post_pretrain + pointwise
+            if args.loss_type != 'pairwise' and args.train_type == 'post_pretrain':  # post_pretrain + pointwise
                 input_ids, attention_mask, token_type_ids, labels, next_sentence_labels = [x.to(device) for x in batch]
                 prediction_scores, classification_logits = model(input_ids, attention_mask, token_type_ids)
                 loss_dict = critertion(prediction_scores, labels, classification_logits, next_sentence_labels)
 
-            elif args.loss_type != 'pairwise' and args.train_type != 'post_pretrain': # post_pretrain + finetuing
+            elif args.loss_type != 'pairwise' and args.train_type != 'post_pretrain':  # post_pretrain + finetuing
                 input_ids, attention_mask, token_type_ids, next_sentence_labels = [x.to(device) for x in batch]
                 classification_logits = model(input_ids, attention_mask, token_type_ids)
-                loss_dict = critertion(classification_logits=classification_logits,next_sentence_labels=next_sentence_labels)
+                loss_dict = critertion(classification_logits=classification_logits,
+                                       next_sentence_labels=next_sentence_labels)
 
-            elif args.loss_type == 'pairwise' and args.train_type == 'post_pretrain': #  post_pretrain + pointwise + pairwise
-                neg_input_ids, posi_input_ids, neg_attention_mask, posi_attention_mask, neg_token_type_ids, posi_token_type_ids, neg_labels, posi_labels  = [x.to(device) for x in batch]
-                neg_prediction_scores, neg_classification_logits = model(neg_input_ids, neg_attention_mask, neg_token_type_ids)
-                posi_prediction_scores, posi_classification_logits = model(posi_input_ids, posi_attention_mask, posi_token_type_ids)
+            elif args.loss_type == 'pairwise' and args.train_type == 'post_pretrain':  # post_pretrain + pointwise + pairwise
+                neg_input_ids, posi_input_ids, neg_attention_mask, posi_attention_mask, neg_token_type_ids, posi_token_type_ids, neg_labels, posi_labels = [
+                    x.to(device) for x in batch]
+                neg_prediction_scores, neg_classification_logits = model(neg_input_ids, neg_attention_mask,
+                                                                         neg_token_type_ids)
+                posi_prediction_scores, posi_classification_logits = model(posi_input_ids, posi_attention_mask,
+                                                                           posi_token_type_ids)
                 neg_nsp_label = torch.zeros(neg_input_ids.shape[0]).to(device)
                 posi_nsp_label = torch.ones(neg_input_ids.shape[0]).to(device)
 
@@ -234,16 +247,19 @@ def train(args):
                                        posi_classification_logits,
                                        posi_nsp_label)
 
-            else:  #  finetuing + pointwise + pairwise
-                neg_input_ids, posi_input_ids, neg_attention_mask, posi_attention_mask, neg_token_type_ids, posi_token_type_ids = [x.to(device) for x in batch]
-                neg_classification_logits = model(neg_input_ids, neg_attention_mask,neg_token_type_ids)
-                posi_classification_logits = model(posi_input_ids, posi_attention_mask,posi_token_type_ids)
+            else:  # finetuing + pointwise + pairwise
+                neg_input_ids, posi_input_ids, neg_attention_mask, posi_attention_mask, neg_token_type_ids, posi_token_type_ids = [
+                    x.to(device) for x in batch]
+                neg_classification_logits = model(neg_input_ids, neg_attention_mask, neg_token_type_ids)
+                posi_classification_logits = model(posi_input_ids, posi_attention_mask, posi_token_type_ids)
                 neg_nsp_label = torch.zeros(neg_classification_logits.shape[0]).to(device)
                 posi_nsp_label = torch.ones(neg_classification_logits.shape[0]).to(device)
-                loss_dict = critertion(neg_classification_logits=neg_classification_logits,neg_nsp_label=neg_nsp_label,posi_classification_logits=posi_classification_logits,posi_nsp_label=posi_nsp_label)
+                loss_dict = critertion(neg_classification_logits=neg_classification_logits, neg_nsp_label=neg_nsp_label,
+                                       posi_classification_logits=posi_classification_logits,
+                                       posi_nsp_label=posi_nsp_label)
 
-
-            loss, mlm_loss, pointwise_loss,pairwise_loss = loss_dict['total_loss'], loss_dict['mlm_loss'], loss_dict['pointwise_loss'],loss_dict['pairwise_loss']
+            loss, mlm_loss, pointwise_loss, pairwise_loss = loss_dict['total_loss'], loss_dict['mlm_loss'], loss_dict[
+                'pointwise_loss'], loss_dict['pairwise_loss']
 
             optimizer.zero_grad()
             loss.backward()
@@ -257,7 +273,7 @@ def train(args):
                 time_diff = time.time() - tic_train
                 logger.info(
                     "global step: %d, epoch: %d, batch: %d, total_loss: %.4f, mlm_loss: %.4f, pointwise_loss: %.4f,pairwise_loss: %.4f,time cost: %.2fs" %
-                    (global_step, epoch, step, loss, mlm_loss, pointwise_loss,pairwise_loss,time_diff))
+                    (global_step, epoch, step, loss, mlm_loss, pointwise_loss, pairwise_loss, time_diff))
 
             with open(args.log_path, 'a+') as fw:
                 if global_step % args.save_steps == 0:
@@ -302,12 +318,12 @@ def evaluate(args, model, dataloader, device):
     Compute spearman correlation coefficient.
     """
     model.eval()
-    preds, nsp_labels = [], []
+    preds, nsp_labels, raw_labels = [], [], []
     all_sessionid, all_infoid, all_query, all_doc = [], [], [], []
     all_pred_result = []
     for batch in tqdm(dataloader):
         batch_data, batch_sessionid, batch_infoid, batch_query, batch_doc = batch[:-4], batch[-4], batch[-3], batch[-2], \
-        batch[-1]
+            batch[-1]
         input_ids, attention_mask, token_type_ids, next_sentence_labels = [x.to(device) for x in batch_data]
 
         if args.train_type == 'post_pretrain':
@@ -327,11 +343,11 @@ def evaluate(args, model, dataloader, device):
             # seq_relationship_logits = outputs.seq_relationship_logits
             # nsp_probs = F.softmax(seq_relationship_logits, dim=-1) # [b,2]
             # nsp_predictions = torch.argmax(nsp_probs, dim=-1)
-
         sigmoid_logits = torch.sigmoid(classification_logits)
         preds.extend(sigmoid_logits.cpu().numpy())  # 预测结果
 
         nsp_label_cpu = next_sentence_labels.cpu()
+        raw_labels.extend(nsp_label_cpu.numpy())
         # 阈值转化
         if args.is_eval_thr == 'True' and args.threshold != None:
             # logger.info(f"eval 集合label根据threshold--{args.threshold}--进行划分")
@@ -347,13 +363,17 @@ def evaluate(args, model, dataloader, device):
     # 计算auc
     preds = np.array(preds)
     labels_array = np.array(nsp_labels)
+    raw_labels_array = np.array(raw_labels)
     auc = cul_auc(labels_array, preds)
+    # auc = 0
 
     if args.mode == 'predict':
-        for sessionid, infoid, query, doc, pred, label in zip(all_sessionid, all_infoid, all_query, all_doc, preds,
-                                                              labels_array):
+        for sessionid, infoid, query, doc, pred, label, raw_label in zip(all_sessionid, all_infoid, all_query, all_doc,
+                                                                         preds,
+                                                                         labels_array, raw_labels_array):
             all_pred_result.append(
-                {'sessionid': sessionid, 'infoid': infoid, 'query': query, 'doc': doc, 'pred': pred, 'label': label})
+                {'sessionid': sessionid, 'infoid': infoid, 'query': query, 'doc': doc, 'pred': pred, 'label': label,
+                 'raw_label': raw_label})
 
     model.train()
     return auc, all_pred_result

@@ -51,6 +51,7 @@ def parse_args():
     parser.add_argument('--is_eval_thr', default=True, type=str, help='验证集合是否需要阈值划分')
     parser.add_argument("--threshold", default=None, type=int)
     parser.add_argument("--loss_type", default="pointwise", type=str, required=True, help="训练方式可选pointwise、pairwise.")
+    parser.add_argument("--is_distill", default="false", type=str, help="是否开启distill")
     args = parser.parse_args()
     return args
 

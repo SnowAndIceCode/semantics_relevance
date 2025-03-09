@@ -6,66 +6,27 @@
 # import tempfile
 import os
 import random
-# local_path="getmodel"
-# local_path_split = os.path.split(local_path)
-# print(local_path_split)
-# print(local_path_split[1])
-a = sorted([5,2,3]) #【2，3，5】
-res = a.index(3)
-print(res)
-# tmp_dir = tempfile.TemporaryDirectory().name
-# if not os.path.exists(tmp_dir):
-#     os.makedirs(tmp_dir)
-#
-# # load dataset
-# ds = MsDataset.load('dureader-retrieval-ranking', 'zyznull')
-# train_ds = ds['train'].to_hf_dataset()
-# dev_ds = ds['dev'].to_hf_dataset()
-# model_id = '/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/iic/nlp_rom_passage-ranking_chinese-base'
-# print(len(next(iter(train_ds))["positive_passages"]))
-# print(len(next(iter(train_ds))["negative_passages"]))
-# def cfg_modify_fn(cfg):
-#     cfg.task = 'text-ranking'
-#     cfg['preprocessor'] = {'type': 'text-ranking'}
-#     cfg['dataset'] = {
-#         'train': {
-#             'type': 'bert',
-#             'query_sequence': 'query',
-#             'pos_sequence': 'positive_passages',
-#             'neg_sequence': 'negative_passages',
-#             'text_fileds': ['text'],
-#             'qid_field': 'query_id'
-#         },
-#         'val': {
-#             'type': 'bert',
-#             'query_sequence': 'query',
-#             'pos_sequence': 'positive_passages',
-#             'neg_sequence': 'negative_passages',
-#             'text_fileds': ['text'],
-#             'qid_field': 'query_id'
-#         },
-#     }
-#     cfg['train']['neg_samples'] = 4
-#     cfg['evaluation']['dataloader']['batch_size_per_gpu'] = 30
-#     cfg.train.max_epochs = 1
-#     cfg.train.train_batch_size = 4
-#     cfg.train.hooks = [{
-#         'type': 'TextLoggerHook',
-#         'interval': 2
-#     }, {
-#         'type': 'IterTimerHook'
-#     }, {
-#         'type': 'EvaluationHook',
-#         'by_epoch': False,
-#         'interval': 1000
-#     }]
-#     return cfg
-# kwargs = dict(
-#     model=model_id,
-#     train_dataset=train_ds,
-#     work_dir=tmp_dir,
-#     eval_dataset=dev_ds,
-#     cfg_modify_fn=cfg_modify_fn)
-# trainer = build_trainer(name=Trainers.nlp_text_ranking_trainer, default_args=kwargs)
-# print(trainer)
-# trainer.train()
+import json
+
+# from datasets import load_dataset
+# dataset = load_dataset(path='Shitao/bge-reranker-data',cache_dir="./dataset/beg_data")
+# print(dataset)
+
+
+# with open('./t2rank_100.distill.standard.jsonl') as fr:
+    # for line in fr:
+    #     data_json = json.loads(line.strip())
+    #     break
+    # print(data_json.keys())
+    # print(len(data_json["pos"]))
+    # print(data_json["query"])
+    # print(data_json["pos"][0])
+
+from transformers import AutoTokenizer
+import torch
+query = '58同城'
+doc = '58同城厂家直销）免费上门定制方案丨办公家具丨会员打9折丨24小时在 家具'
+tokenizer = AutoTokenizer.from_pretrained('/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/tiansz/bert-base-chinese')
+token = tokenizer(query,doc)
+
+print(token)
