@@ -112,7 +112,7 @@ def load_model(args, device='cpu'):
         logger.info(f"pretrain path:{args.load_path}")
         pretrain_model = PostTrainModel.from_pretrained(args.load_path, args.num_layer)
 
-        model = FineTuningModel(pretrain_model.config, args.num_layer).to(device)
+        model = FineTuningModel(pretrain_model.config, args.num_layer,args.hidden_size,args.intermediate_size).to(device)
         # 加载ckpt
         if args.is_load == "True":
             model.bert.load_state_dict(pretrain_model.bert.state_dict())  # 加载postpretrain bert
@@ -129,9 +129,9 @@ def load_model(args, device='cpu'):
             model = PostTrainModel.from_pretrained(args.pretrain_path, num_layers=args.num_layer).to(device)
         else:
             config = BertConfig.from_pretrained(args.pretrain_path)
-            model = PostTrainModel(config, args.num_layer).to(device)
+            model = PostTrainModel(config, args.num_layer,args.hidden_size,args.intermediate_size).to(device)
 
-        if args.is_load == "True" and args.is_pretrain_weight !="True":
+        if args.is_load == "True" and args.is_pretrain_weight :
             model.load_state_dict(torch.load(args.load_path + "/pytorch_model.bin"))
             logger.info(f'load model is {args.load_path}')
             logger.info(f'model str:{model}')
