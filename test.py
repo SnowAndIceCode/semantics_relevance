@@ -1,32 +1,39 @@
-# 需在GPU环境运行
-# 加载数据集过程可能由于网络原因失败，请尝试重新运行代码
-# from modelscope.metainfo import Trainers
-# from modelscope.msdatasets import MsDataset
-# from modelscope.trainers import build_trainer
-# import tempfile
-import os
-import random
-import json
+[{'query': '木工师傅个人', 'doc': '专业木工师傅、装修、衣帽间、免费上门、卫生间隔断', 'score': 0.89974153},
+ {'query': '木工师傅个人', 'doc': '木门修理 木门油漆修复 木门破损修补修复 门框油漆补漆 房门修复卧门',
+  'score': 0.71823984},
+ {'query': '木工师傅个人', 'doc': '家具维修木门补漆修修复木门维修门框维修木门维修翻新沙发修复翻新木门改色',
+  'score': 0.69420844},
+ {'query': '木工师傅个人', 'doc': '木门维修木门修理 木门门框维修补漆 木门防盗门维修翻新 室内门破损维修',
+  'score': 0.66506356},
+ {'query': '木工师傅个人', 'doc': '承接家装工装大小活、旧房改造、新房装修、店铺装修、餐饮店装修办公室装修 工装服务',
+  'score': 0.62506336},
+ {'query': '木工师傅个人', 'doc': '\t家具安装师傅个人', 'score': 0.582174}]
 
-# from datasets import load_dataset
-# dataset = load_dataset(path='Shitao/bge-reranker-data',cache_dir="./dataset/beg_data")
-# print(dataset)
+[{'query': '木工师傅个人', 'doc': '专业木工师傅、装修、衣帽间、免费上门、卫生间隔断', 'score': 0.8935817},
+ {'query': '木工师傅个人', 'doc': '承接家装工装大小活、旧房改造、新房装修、店铺装修、餐饮店装修办公室装修 工装服务',
+  'score': 0.7291524},
+ {'query': '木工师傅个人', 'doc': '家具维修木门补漆修修复木门维修门框维修木门维修翻新沙发修复翻新木门改色',
+  'score': 0.63958925},
+ {'query': '木工师傅个人', 'doc': '\t家具安装师傅个人', 'score': 0.5969844},
+ {'query': '木工师傅个人', 'doc': '木门维修木门修理 木门门框维修补漆 木门防盗门维修翻新 室内门破损维修',
+  'score': 0.5376644},
+ {'query': '木工师傅个人', 'doc': '木门修理 木门油漆修复 木门破损修补修复 门框油漆补漆 房门修复卧门',
+  'score': 0.4897105}]
 
+[{'query': '添加制冷剂', 'doc': '温州空调不制冷不凉快空调维修定频变频维修空调加液(加制冷剂) 家电维修',
+  'score': 0.86134136},
+ {'query': '添加制冷剂', 'doc': '快速上门空调故障、修理、加液拆装回收 家电维修', 'score': 0.47585326},
+ {'query': '添加制冷剂', 'doc': '左家庄 西坝河 柳芳空调维修 加氟 清洗 安装', 'score': 0.37972048},
+ {'query': '添加制冷剂', 'doc': '快速上门维修故障空调、定频加氟、拆装中央空调，其他家电勿扰 家电维修',
+  'score': 0.37189612},
+ {'query': '添加制冷剂', 'doc': '空调维修、加液、清洗，拆装空调，中央空调维修，洗衣机、冰箱、热水器维修 家电维修',
+  'score': 0.3000941},
+ {'query': '添加制冷剂', 'doc': '陪诊，跑腿、输液、保姆/月嫂', 'score': 0.08724036}]
 
-# with open('./t2rank_100.distill.standard.jsonl') as fr:
-    # for line in fr:
-    #     data_json = json.loads(line.strip())
-    #     break
-    # print(data_json.keys())
-    # print(len(data_json["pos"]))
-    # print(data_json["query"])
-    # print(data_json["pos"][0])
-
-from transformers import AutoTokenizer
-import torch
-query = '58同城'
-doc = '58同城厂家直销）免费上门定制方案丨办公家具丨会员打9折丨24小时在 家具'
-tokenizer = AutoTokenizer.from_pretrained('/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/tiansz/bert-base-chinese')
-token = tokenizer(query,doc)
-
-print(token)
+[{'query': '添加制冷剂', 'doc': '温州空调不制冷不凉快空调维修定频变频维修空调加液(加制冷剂) 家电维修',
+  'score': 0.5753252},
+ {'query': '添加制冷剂', 'doc': '快速上门空调故障、修理、加液拆装回收 家电维修', 'score': 0.4897482},
+ {'query': '添加制冷剂', 'doc': '快速上门维修故障空调、定频加氟、拆装中央空调，其他家电勿扰 家电维修', 'score': 0.3751425},
+ {'query': '添加制冷剂', 'doc': '左家庄 西坝河 柳芳空调维修 加氟 清洗 安装', 'score': 0.2991354},
+ {'query': '添加制冷剂', 'doc': '空调维修、加液、清洗，拆装空调，中央空调维修，洗衣机、冰箱、热水器维修 家电维修',
+  'score': 0.29553136}, {'query': '添加制冷剂', 'doc': '陪诊，跑腿、输液、保姆/月嫂', 'score': 0.084439725}]

@@ -15,9 +15,11 @@ from transformers import AutoModel,BertForMaskedLM,BertPreTrainedModel,BertModel
 '''
 
 class PostTrainModel(BertPreTrainedModel):
-    def __init__(self,config,num_layers=12):
+    def __init__(self,config,num_layers=12,hidden_size=768,intermediate_size=3072):
         super().__init__(config)
         config.num_hidden_layers = num_layers
+        config.hidden_size = hidden_size
+        config.intermediate_size = intermediate_size
         self.bert = BertModel(config)
         self.cls_mlm = BertForMaskedLM(config).cls
         self.classification_head = nn.Linear(config.hidden_size, 1)
@@ -33,9 +35,11 @@ class PostTrainModel(BertPreTrainedModel):
 
 
 class FineTuningModel(BertPreTrainedModel):
-    def __init__(self,config,num_layers=12):
+    def __init__(self,config,num_layers=12,hidden_size=768,intermediate_size=3072):
         super().__init__(config)
         config.num_hidden_layers = num_layers
+        config.hidden_size = hidden_size
+        config.intermediate_size = intermediate_size
         self.bert = BertModel(config)
         self.classification_head = nn.Linear(config.hidden_size, 1)
     def forward(self,input_ids,attention_mask,token_type_ids):
@@ -45,16 +49,29 @@ class FineTuningModel(BertPreTrainedModel):
         return classification_logits.squeeze()
 
 if __name__ == '__main__':
-    from transformers import AutoTokenizer
+    # from transformers import AutoTokenizer
     mode_path = '/Users/a58/Documents/wxb/workspace/semantics_relevance/pretrain_models/tiansz/bert-base-chinese'
-    model =AutoModel.from_pretrained(mode_path)
-    total_params = sum(p.numel() for p in model.parameters()) / 1_000_000
-    print(total_params)
-    # data = ['W','w']
+    # config =BertConfig.from_pretrained(mode_path)
+    # model = BertModel(config)
+    # print(model)
+    # total_params = sum(p.numel() for p in model.parameters()) / 1_000_000
+    # print(total_params)
+    # # data = ['W','w']
     # tokenizer = AutoTokenizer.from_pretrained(mode_path)
     # inputs = tokenizer(data,padding="max_length",max_length=64,truncation=True,return_tensors='pt')
     # print(inputs)
 
+    # config = BertConfig.from_pretrained(mode_path)
+    # model1 = FineTuningModel(config,num_layers=2)
+    # print(model1)
+    # total_params = sum(p.numel() for p in model1.parameters()) / 1_000_000
+    # print(total_params)
+    #
+    # print("=========")
+    # model2 = FineTuningModel(config, num_layers=4,hidden_size=192,intermediate_size=768)
+    # print(model2)
+    # total_params = sum(p.numel() for p in model2.parameters()) / 1_000_000
+    # print(total_params)
     # config = BertConfig.from_pretrained(mode_path)
     # # model = PostTrainModel(config,12)
     # model = FineTuningModel(config,2)

@@ -19,10 +19,14 @@ def parse_args():
     parser.add_argument("--test_result", default='./test_result/test.csv', type=str, required=True, help="预测结果保存路径")
     parser.add_argument("--log_path", default='ckpt/result.log', type=str, required=True, help="logs路径")
 
+    # bert structure
     parser.add_argument("--pretrain_path", default=None, type=str, required=True, help="The pretrain model path.")
     parser.add_argument("--train_type",default="finetune", type=str, required=False)
     parser.add_argument("--num_layer",default=12, type=int, required=False)
+    parser.add_argument("--hidden_size", default=768, type=int, required=False)
+    parser.add_argument("--intermediate_size", default=3072, type=int, required=False)
     parser.add_argument('--is_load', default=False, type=str, help='是否加载模型权重')
+    parser.add_argument('--is_pretrain_weight', default=False, type=str, help='是否加载预训练模型权重')
     parser.add_argument("--load_path", default=None, type=str, required=True, help="加载模型路径")
 
     # Other parameters
@@ -51,7 +55,7 @@ def parse_args():
     parser.add_argument('--is_eval_thr', default=True, type=str, help='验证集合是否需要阈值划分')
     parser.add_argument("--threshold", default=None, type=int)
     parser.add_argument("--loss_type", default="pointwise", type=str, required=True, help="训练方式可选pointwise、pairwise.")
-    parser.add_argument("--is_distill", default="false", type=str, help="是否开启distill")
+    parser.add_argument("--is_distill", default="False", type=str, help="是否开启distill")
     args = parser.parse_args()
     return args
 
