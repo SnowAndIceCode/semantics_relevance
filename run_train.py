@@ -96,7 +96,7 @@ def load_model(args, device='cpu'):
     if args.train_type == 'finetune':
         logger.info(f"pretrain path:{args.load_path}")
         pretrain_model = PostTrainModel.from_pretrained(args.load_path)
-        model = FineTuningModel(pretrain_model.config, args.num_layer).to(device)
+        model = FineTuningModel(pretrain_model.config, args.num_layer,args.hidden_size,args.intermediate_size).to(device)
         # 加载ckpt
         if args.is_load == "True":
             model.bert.load_state_dict(pretrain_model.bert.state_dict())  # 加载postpretrain bert
@@ -107,15 +107,11 @@ def load_model(args, device='cpu'):
 
     elif args.train_type == 'post_pretrain':
         config = BertConfig.from_pretrained(args.pretrain_path)
-        model = PostTrainModel(config, args.num_layer).to(device)
+        model = PostTrainModel(config, args.num_layer,args.hidden_size,args.intermediate_size).to(device)
         if args.is_load == "True":
             model_path = args.load_path + 'best_pytorch_model.bin'
             model.load_state_dict(torch.load(model_path))
             logger.info(f'load model is {model_path}')
-    elif args.train_type == 'pretrain':
-        model = BertForPreTraining.from_pretrained(args.pretrain_path)
-    elif args.train_type == 'raw':
-        model = AutoModel.from_pretrained(args.pretrain_path)
     else:
         raise ValueError('train_type must be in [fintune, post_pretrain, pretrain]')
 
